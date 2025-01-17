@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/haxpax/gosms"
 	"github.com/haxpax/gosms/modem"
@@ -10,10 +11,12 @@ import (
 )
 
 func main() {
+	configFile := flag.String("config", "conf.ini", "Path to the configuration file")
+	flag.Parse()
+	log.Println("main: ", "Initializing gosms with config file: ", *configFile)
 
-	log.Println("main: ", "Initializing gosms")
 	//load the config, abort if required config is not preset
-	appConfig, err := gosms.GetConfig("conf.ini")
+	appConfig, err := gosms.GetConfig(*configFile)
 	if err != nil {
 		log.Println("main: ", "Invalid config: ", err.Error(), " Aborting")
 		os.Exit(1)
