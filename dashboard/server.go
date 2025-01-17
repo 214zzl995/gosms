@@ -1,26 +1,26 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/haxpax/gosms"
 	"github.com/gorilla/mux"
+	"github.com/haxpax/gosms"
 	"github.com/satori/go.uuid"
 	"html/template"
 	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
-	"encoding/base64"
 )
 
-//reposne structure to /sms
+// reposne structure to /sms
 type SMSResponse struct {
 	Status  int    `json:"status"`
 	Message string `json:"message"`
 }
 
-//response structure to /smsdata/
+// response structure to /smsdata/
 type SMSDataResponse struct {
 	Status   int            `json:"status"`
 	Message  string         `json:"message"`
@@ -68,7 +68,8 @@ func sendSMSHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	mobile := r.FormValue("mobile")
 	message := r.FormValue("message")
-	uuid, _ := uuid.NewV1()
+	uuid := uuid.NewV4()
+
 	sms := &gosms.SMS{UUID: uuid.String(), Mobile: mobile, Body: message, Retries: 0}
 	gosms.EnqueueMessage(sms, true)
 
