@@ -40,14 +40,11 @@ func main() {
 	serverUsername := "" // Set this to the appropriate value if needed
 	serverPassword := "" // Set this to the appropriate value if needed
 
-	numDevices := len(appConfig.Devices)
-	log.Println("main: number of devices: ", numDevices)
-
 	var modems []*modem.GSMModem
-	for _, dev := range appConfig.Devices {
+	for devId, dev := range appConfig.Devices {
 		_port := dev.ComPort
 		_baud := dev.BaudRate
-		_devId := dev.DevID
+		_devId := devId
 		m := modem.New(_port, _baud, _devId)
 		modems = append(modems, m)
 	}

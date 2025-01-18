@@ -22,7 +22,6 @@ type Settings struct {
 type Device struct {
 	ComPort  string `toml:"comPort"`
 	BaudRate int    `toml:"baudRate"`
-	DevID    string `toml:"devID"`
 }
 
 type Config struct {
@@ -67,18 +66,14 @@ func testConfig(appConfig Config) (bool, error) {
 	}
 
 	for _, field := range requiredFields {
-		// 确保字段值不为空或无效
 		if field.value == nil || (field.field == "ServerHost" && strings.TrimSpace(field.value.(string)) == "") {
 			return false, errors.New(fmt.Sprintf("Fatal: %s is not set", field.field))
 		}
 	}
 
-	// 检查每个 DEVICE 是否具有所需的设置
-	if len(appConfig.Devices) > 0 {
-		for i, d := range appConfig.Devices {
-			if strings.TrimSpace(d.ComPort) == "" || d.BaudRate == 0 || strings.TrimSpace(d.DevID) == "" {
-				return false, fmt.Errorf("fatal: Device %d configuration is incomplete", i)
-			}
+	for key, device := range appConfig.Devices {
+		if strings.TrimSpace(device.ComPort) == "" || device.BaudRate == 0 {
+			return false, fmt.Errorf("fatal: Device %s configuration is incomplete", key)
 		}
 	}
 

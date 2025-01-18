@@ -10,7 +10,6 @@ msgTimeout = 5
 msgCountOut = 10
 msgTimeoutLong = 20
 
-[device]
+[device.default]
 comPort = "/dev/ttyUSB2"
 baudRate = 115200
-devID = "MyModem"
