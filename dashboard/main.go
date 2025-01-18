@@ -44,8 +44,7 @@ func main() {
 	log.Println("main: number of devices: ", numDevices)
 
 	var modems []*modem.GSMModem
-	for i := 0; i < numDevices; i++ {
-		dev := appConfig.Devices[i]
+	for _, dev := range appConfig.Devices {
 		_port := dev.ComPort
 		_baud := dev.BaudRate
 		_devId := dev.DevID
