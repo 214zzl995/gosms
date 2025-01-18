@@ -14,18 +14,18 @@ import (
 	"strings"
 )
 
-// reposne structure to /sms
+// SMSResponse repose structure to /sms
 type SMSResponse struct {
 	Status  int    `json:"status"`
 	Message string `json:"message"`
 }
 
-// response structure to /smsdata/
+// SMSDataResponse response structure to /medata/
 type SMSDataResponse struct {
 	Status   int            `json:"status"`
 	Message  string         `json:"message"`
 	Summary  []int          `json:"summary"`
-	DayCount map[string]int `json:"daycount"`
+	DayCount map[string]int `json:"day count"`
 	Messages []gosms.SMS    `json:"messages"`
 }
 
@@ -38,13 +38,16 @@ var authPassword string
 /* dashboard handlers */
 
 // dashboard
-func indexHandler(w http.ResponseWriter, r *http.Request) {
+func indexHandler(w http.ResponseWriter, _ *http.Request) {
 	log.Println("--- indexHandler")
 	// templates.ExecuteTemplate(w, "index.html", nil)
 	// Use during development to avoid having to restart server
 	// after every change in HTML
 	t, _ := template.ParseFiles("./templates/index.html")
-	t.Execute(w, nil)
+	err := t.Execute(w, nil)
+	if err != nil {
+		return
+	}
 }
 
 // handle all static files based on specified path
@@ -65,26 +68,32 @@ func sendSMSHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-type", "application/json")
 
 	//TODO: validation
-	r.ParseForm()
+	err := r.ParseForm()
+	if err != nil {
+		return
+	}
 	mobile := r.FormValue("mobile")
 	message := r.FormValue("message")
-	uuid := uuid.NewV4()
+	id := uuid.NewV4()
 
-	sms := &gosms.SMS{UUID: uuid.String(), Mobile: mobile, Body: message, Retries: 0}
+	sms := &gosms.SMS{UUID: id.String(), Mobile: mobile, Body: message, Retries: 0}
 	gosms.EnqueueMessage(sms, true)
 
-	smsresp := SMSResponse{Status: 200, Message: "ok"}
+	smsResponse := SMSResponse{Status: 200, Message: "ok"}
 	var toWrite []byte
-	toWrite, err := json.Marshal(smsresp)
+	toWrite, err = json.Marshal(smsResponse)
 	if err != nil {
 		log.Println(err)
-		//lets just depend on the server to raise 500
+		//let's just depend on the server to raise 500
 	}
-	w.Write(toWrite)
+	_, err = w.Write(toWrite)
+	if err != nil {
+		return
+	}
 }
 
 // dumps JSON data, used by log view. Methods allowed: GET
-func getLogsHandler(w http.ResponseWriter, r *http.Request) {
+func getLogsHandler(w http.ResponseWriter, _ *http.Request) {
 	log.Println("--- getLogsHandler")
 	messages, _ := gosms.GetMessages("")
 	summary, _ := gosms.GetStatusSummary()
@@ -100,10 +109,13 @@ func getLogsHandler(w http.ResponseWriter, r *http.Request) {
 	toWrite, err := json.Marshal(logs)
 	if err != nil {
 		log.Println(err)
-		//lets just depend on the server to raise 500
+		//let's just depend on the server to raise 500
 	}
 	w.Header().Set("Content-type", "application/json")
-	w.Write(toWrite)
+	_, err = w.Write(toWrite)
+	if err != nil {
+		return
+	}
 }
 
 /* end API handlers */

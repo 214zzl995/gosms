@@ -1,8 +1,8 @@
 package main
 
 import (
+	"database/sql"
 	"flag"
-	"fmt"
 	"github.com/haxpax/gosms"
 	"github.com/haxpax/gosms/modem"
 	"log"
@@ -11,11 +11,11 @@ import (
 )
 
 func main() {
-	configFile := flag.String("config", "conf.ini", "Path to the configuration file")
+	configFile := flag.String("config", "config.toml", "Path to the configuration file")
 	flag.Parse()
-	log.Println("main: ", "Initializing gosms with config file: ", *configFile)
+	log.Println("main: ", "Initializing forms with config file: ", *configFile)
 
-	//load the config, abort if required config is not preset
+	// Load the config, abort if required config is not present
 	appConfig, err := gosms.GetConfig(*configFile)
 	if err != nil {
 		log.Println("main: ", "Invalid config: ", err.Error(), " Aborting")
@@ -27,48 +27,43 @@ func main() {
 		log.Println("main: ", "Error initializing database: ", err, " Aborting")
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			log.Println("main: ", "Error closing database: ", err)
+		}
+	}(db)
 
-	serverhost, _ := appConfig.Get("SETTINGS", "SERVERHOST")
-	serverport, _ := appConfig.Get("SETTINGS", "SERVERPORT")
+	serverHost := appConfig.Settings.ServerHost
+	serverPort := strconv.Itoa(appConfig.Settings.ServerPort)
 
-	serverusername, _ := appConfig.Get("SETTINGS", "USERNAME")
-	serverpassword, _ := appConfig.Get("SETTINGS", "PASSWORD")
+	serverUsername := "" // Set this to the appropriate value if needed
+	serverPassword := "" // Set this to the appropriate value if needed
 
-	_numDevices, _ := appConfig.Get("SETTINGS", "DEVICES")
-	numDevices, _ := strconv.Atoi(_numDevices)
+	numDevices := len(appConfig.Devices)
 	log.Println("main: number of devices: ", numDevices)
 
 	var modems []*modem.GSMModem
 	for i := 0; i < numDevices; i++ {
-		dev := fmt.Sprintf("DEVICE%v", i)
-		_port, _ := appConfig.Get(dev, "COMPORT")
-		_baud := 115200 //appConfig.Get(dev, "BAUDRATE")
-		_devid, _ := appConfig.Get(dev, "DEVID")
-		m := modem.New(_port, _baud, _devid)
+		dev := appConfig.Devices[i]
+		_port := dev.ComPort
+		_baud := dev.BaudRate
+		_devId := dev.DevID
+		m := modem.New(_port, _baud, _devId)
 		modems = append(modems, m)
 	}
 
-	_bufferSize, _ := appConfig.Get("SETTINGS", "BUFFERSIZE")
-	bufferSize, _ := strconv.Atoi(_bufferSize)
-
-	_bufferLow, _ := appConfig.Get("SETTINGS", "BUFFERLOW")
-	bufferLow, _ := strconv.Atoi(_bufferLow)
-
-	_loaderTimeout, _ := appConfig.Get("SETTINGS", "MSGTIMEOUT")
-	loaderTimeout, _ := strconv.Atoi(_loaderTimeout)
-
-	_loaderCountout, _ := appConfig.Get("SETTINGS", "MSGCOUNTOUT")
-	loaderCountout, _ := strconv.Atoi(_loaderCountout)
-
-	_loaderTimeoutLong, _ := appConfig.Get("SETTINGS", "MSGTIMEOUTLONG")
-	loaderTimeoutLong, _ := strconv.Atoi(_loaderTimeoutLong)
+	bufferSize := appConfig.Settings.BufferSize
+	bufferLow := appConfig.Settings.BufferLow
+	loaderTimeout := appConfig.Settings.MsgTimeout
+	loaderCountout := appConfig.Settings.MsgCountOut
+	loaderTimeoutLong := appConfig.Settings.MsgTimeoutLong
 
 	log.Println("main: Initializing worker")
 	gosms.InitWorker(modems, bufferSize, bufferLow, loaderTimeout, loaderCountout, loaderTimeoutLong)
 
 	log.Println("main: Initializing server")
-	err = InitServer(serverhost, serverport, serverusername, serverpassword)
+	err = InitServer(serverHost, serverPort, serverUsername, serverPassword)
 	if err != nil {
 		log.Println("main: ", "Error starting server: ", err.Error(), " Aborting")
 		os.Exit(1)

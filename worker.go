@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-//TODO: should be configurable
+// SMSRetryLimit TODO: should be configurable
 const SMSRetryLimit = 3
 
 const (
@@ -53,29 +53,29 @@ func InitWorker(modems []*modem.GSMModem, bufferSize, bufferLow, loaderTimeout, 
 	messageCountSinceLastWakeup = 0
 	timeOfLastWakeup = time.Now().Add((time.Duration(loaderTimeout) * -1) * time.Minute) //older time handles the cold start state of the system
 
-	// its important to init messages channel before starting modems because nil
-	// channel is non-blocking
-
 	for i := 0; i < len(modems); i++ {
-		modem := modems[i]
-		err := modem.Connect()
+		gsmModem := modems[i]
+		err := gsmModem.Connect()
 		if err != nil {
-			log.Println("InitWorker: error connecting", modem.DeviceId, err)
+			log.Println("InitWorker: error connecting", gsmModem.DeviceId, err)
 			continue
 		}
-		go processMessages(modem)
+		go processMessages(gsmModem)
 	}
-	go messageLoader(bufferMaxSize, bufferLowCount)
+	go messageLoader()
 }
 
 func EnqueueMessage(message *SMS, insertToDB bool) {
 	log.Println("--- EnqueueMessage: ", message)
 	if insertToDB {
-		insertMessage(message)
+		err := insertMessage(message)
+		if err != nil {
+			return
+		}
 	}
 	//wakeup message loader and exit
 	go func() {
-		//notify the message loader only if its been to too long
+		//notify the message loader only if it's been to too long
 		//or too many messages since last notification
 		messageCountSinceLastWakeup++
 		if messageCountSinceLastWakeup > messageLoaderCountout || time.Now().Sub(timeOfLastWakeup) > messageLoaderTimeout {
@@ -88,13 +88,13 @@ func EnqueueMessage(message *SMS, insertToDB bool) {
 	}()
 }
 
-func messageLoader(bufferSize, minFill int) {
+func messageLoader() {
 	// Load pending messages from database as needed
 	for {
 
 		/*
 		   - set a fairly long timeout for wakeup
-		   - if there are very few number of messages in the system and they failed at first go,
+		   - if there are very few number of messages in the system, and they failed at first go,
 		   and there are no events happening to call EnqueueMessage, those messages might get
 		   stalled in the system until someone knocks on the API door
 		   - we can afford a really long polling in this case
@@ -120,10 +120,10 @@ func messageLoader(bufferSize, minFill int) {
 
 		countToFetch := bufferMaxSize - len(messages)
 		log.Println("messageLoader: ", "I need to fetch more messages", countToFetch)
-		pendingMsgs, err := getPendingMessages(countToFetch)
+		pendingMessages, err := getPendingMessages(countToFetch)
 		if err == nil {
-			log.Println("messageLoader: ", len(pendingMsgs), " pending messages found")
-			for _, msg := range pendingMsgs {
+			log.Println("messageLoader: ", len(pendingMessages), " pending messages found")
+			for _, msg := range pendingMessages {
 				messages <- msg
 			}
 		}
@@ -150,7 +150,10 @@ func processMessages(modem *modem.GSMModem) {
 		}
 		message.Device = modem.DeviceId
 		message.Retries++
-		updateMessageStatus(message)
+		err := updateMessageStatus(message)
+		if err != nil {
+			return
+		}
 		if message.Status != SMSProcessed && message.Retries < SMSRetryLimit {
 			// push message back to queue until either it is sent successfully or
 			// retry count is reached
