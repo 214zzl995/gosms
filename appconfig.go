@@ -26,8 +26,8 @@ type Device struct {
 }
 
 type Config struct {
-	Settings Settings `toml:"settings"`
-	Devices  []Device `toml:"device"`
+	Settings Settings          `toml:"settings"`
+	Devices  map[string]Device `toml:"device"`
 }
 
 // GetConfig 加载并返回配置
